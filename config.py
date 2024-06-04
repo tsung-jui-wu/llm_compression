@@ -12,7 +12,7 @@ def get_config():
     parser.add_argument("--device", default="cuda:0")
 
     # Experiment Settings
-    parser.add_argument("--name", default="none", type=str)
+    parser.add_argument("--name", default="none", type=str, help="Naming each run can be easier found later on, default is none, which will overlap the last experiment with the same settings")
     parser.add_argument("--algo", default="base", help="the algorithm used for training")
     
     parser.add_argument("--seq_len", default=256, type=int, help="context length the language model will input")
@@ -24,7 +24,7 @@ def get_config():
     parser.add_argument("--val", default=False, action='store_true')
     
     # Dataset
-    parser.add_argument("--dataset_path", type=pathlib.Path)
+    parser.add_argument("--dataset_path", type=pathlib.Path, nargs='+', required=True, help="path to dataset you want to train")
     parser.add_argument('--modalities', nargs='+', help='List of Modalities you are training on', default=['.jpg'])
 
     # Reproductivity

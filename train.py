@@ -27,6 +27,8 @@ def main(args):
     else:
         experiment_name = f"{args.exp_type}/{args.algo}/model={args.llm}"
     
+    print(f"Saving Experiment as {experiment_name}")
+    
     writer = SummaryWriter(log_dir = f'runs/{experiment_name}')
     
     match args.llm:
@@ -36,7 +38,6 @@ def main(args):
             llm = GemmaModel(args)
         case "llama":
             llm = LlamaModel(args)
-    
     
     input_dim = args.bits**2
     output_dim = llm.vocab_size
