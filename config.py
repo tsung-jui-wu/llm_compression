@@ -18,7 +18,7 @@ def get_config():
     parser.add_argument("--seq_len", default=256, type=int, help="context length the language model will input")
     parser.add_argument("--bits", default=8, type=int, help="How many bits will be grouped into a token, 8(default) bits is a byte")
     
-    parser.add_argument("--exp_type", default="image", help="which modality is used. [Image, Music, Pose, Video]")
+    parser.add_argument("--exp_type", default="image", help="which modality is used. [Image, Music, Pose, Audio, ...]")
     parser.add_argument('--llm', choices=['gpt2', 'llama', 'gemma'], help='The language model to use')
     parser.add_argument("--train_val_split", default=0.8, type=float, help="What percentage of data should be used as training, default=0.8")
     parser.add_argument("--val", default=False, action='store_true')

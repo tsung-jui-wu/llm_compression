@@ -23,14 +23,20 @@ def main(args):
     print(args.name)
     
     if args.name != "none":
-        experiment_name = f"{args.exp_type}/{args.algo}/{args.name}/model={args.llm}_lr={args.lr}"
+        experiment_name = f"{args.exp_type}/{args.algo}/{args.name}/model={args.llm}"
     else:
-        experiment_name = f"{args.exp_type}/{args.algo}/model={args.llm}_lr={args.lr}"
+        experiment_name = f"{args.exp_type}/{args.algo}/model={args.llm}"
     
     writer = SummaryWriter(log_dir = f'runs/{experiment_name}')
     
-    if "gpt2" in args.llm:
-        llm = GPT2(args)
+    match args.llm:
+        case "gpt2" | "gpt2-xl":
+            llm = GPT2Model(args)
+        case "gemma":
+            llm = GemmaModel(args)
+        case "llama":
+            llm = LlamaModel(args)
+    
     
     input_dim = args.bits**2
     output_dim = llm.vocab_size
@@ -53,7 +59,7 @@ def main(args):
     elif args.algo == 'base':
         print("USING ALGORITHM: SUPERVISED\n")
     
-    print(f"training {args.epoch} epoch(s) with learning rate={args.lr}\n")
+    print(f"training {args.epochs} epoch(s) with learning rate={args.lr}\n")
     
     optimizer = optim.Adam(mapper.model.parameters(), lr=args.lr)
     scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=args.decay)
@@ -64,7 +70,6 @@ def main(args):
         {
             "llm_model": args.llm,
             "modality": args.exp_type,
-            "encoder": args.image_encoder,
             "learning_rate": args.lr,
         },
         {}
@@ -73,67 +78,33 @@ def main(args):
     global_step = 0
     for epoch in range(args.epochs):
         mapper.model.train()
-        for i, dd in enumerate(dataloader):
+        for i, (data, _) in enumerate(trainloader):
             
             optimizer.zero_grad()
-
-            """
-            * For IMAGES
-            """
-            data = dd[0]
-
-            # tokens = []
-            # for image_idx, image in enumerate(images):
-            #     # Construct a unique filename for each image
-            #     filename = os.path.join(temp_dir, f'batch_{i}_image_{image_idx}.jpg')
-            #     # Save the image as a .jpg file
-            #     save_image(image, filename)
-            #     # Convert the saved image file to binary representation
-            #     binary_representation = image_to_binary(filename)
-            #     tokens.append(binary_representation)
-            #     # Optionally, delete the file if it's no longer needed
-            #     os.remove(filename)
-
-            # tensor_list = [torch.tensor(sublist) for sublist in tokens]
-            # # Pad the sequence of tensors, padding zeros behind each sequence
-            # data = pad_sequence(tensor_list, batch_first=True, padding_value=0)        
-            # num_chunks = data.shape[1] // seq_len
-            
-            # data = data[:,:num_chunks*seq_len]
-            """
-            * For IMAGES
-            """
-            
-            # data = dd
-            # round_loss = 0
             
             ground_truth_tokens = data.reshape(-1, seq_len).to(device)
             one_hot_tokens = F.one_hot(ground_truth_tokens, num_classes=bits_vocab_len).float()
 
             # Logits are to be compared with the next ground truth tokens
             ground_truth_tokens = ground_truth_tokens[:,1:]
-            inputs_feature_vector = mapper(one_hot_tokens)
-            
-            # Add prompt to input
-            # prompt_feature_vector = prompt(prompt_inputs)
-            # prompt_feature_vector = prompt_feature_vector.unsqueeze(0).repeat(batch_len, 1, 1)
-            # inputs_feature_vector = torch.cat((prompt_feature_vector, mapped_feature_vector), dim=1)
+            inputs_feature_vector = mapper.model(one_hot_tokens)
 
             # Map tokens and get ground truth from LLM
-            translated_feature_vector, translated_logits, translated_text_tokens = translate(inputs_feature_vector, embeddings.detach(), temperature=temperature)
-            # translated_feature_vector, translated_logits, translated_text_tokens = translate(inputs_feature_vector, embeddings.detach(), temperature=temperature)
-
+            translated_feature_vector, translated_logits, translated_text_tokens = llm.translate(
+                inputs_feature_vector,
+                llm.embeddings.detach(),
+                temperature=args.temperature
+            )
+           
             # Calculate Representation of Last Layer in LLM
-            final_layer_fv = generate_next_token_predictions_withfv(translated_feature_vector)
+            final_layer_fv = llm.generate_next_token_predictions_withfv(translated_feature_vector)
 
             # Calculate Logits with mapper function
-            logits = torch.matmul(final_layer_fv, reverseMapper.mapper.weight)
-            # logits = torch.matmul(final_layer_fv, mapper.mapper.weight)
-            logits = logits[:,prompt_len:-1]
+            logits = torch.matmul(final_layer_fv, mapper.model.weight)
+            logits = logits[:,:-1]
             logits_ = logits.reshape(-1, bits_vocab_len)
             ground_truth_tokens = ground_truth_tokens.reshape(-1)        
             ce_loss = criterion(logits_, ground_truth_tokens)
-            # round_loss += ce_loss.item()
 
             writer.add_scalar("training/cross_entropy", ce_loss.item(), global_step)
             ce_loss.backward()
@@ -141,9 +112,7 @@ def main(args):
             if global_step%100==0:
                 print(f"Epoch {epoch+1}, Batch {global_step}, CE Loss: {ce_loss.mean().item()}")
             global_step+=1
-
-            torch.cuda.empty_cache()
-
+            # torch.cuda.empty_cache()
         scheduler.step()
         print(f"Epoch {epoch+1}/{epochs} completed.")
     writer.close()

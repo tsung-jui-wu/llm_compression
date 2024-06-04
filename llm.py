@@ -74,8 +74,12 @@ class LlamaModel(BaseLLM):
         
         from transformers import LlamaTokenizer, LlamaForCausalLM
 
-        self.tokenizer = LlamaTokenizer.from_pretrained(self.model_name)
-        self.model = LlamaForCausalLM.from_pretrained(self.model_name)
+        llm = 'openlm-research/open_llama_3b_v2'
+        self.tokenizer = LlamaTokenizer.from_pretrained(llm)
+        self.model = LlamaForCausalLM.from_pretrained(llm)
+        
+        # self.tokenizer = LlamaTokenizer.from_pretrained(self.model_name)
+        # self.model = LlamaForCausalLM.from_pretrained(self.model_name)
         
         self.embeddings = self.model.lm_head.weight
         self.feature_dim = self.model.config.hidden_size
@@ -91,9 +95,13 @@ class GemmaModel(BaseLLM):
     def initialize_model(self):
         
         from transformers import AutoTokenizer, AutoModelForCausalLM
-
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(self.model_name)
+        
+        llm = "google/gemma-2b"
+        self.tokenizer = AutoTokenizer.from_pretrained(llm)
+        self.model = AutoModelForCausalLM.from_pretrained(llm)
+        
+        # self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        # self.model = AutoModelForCausalLM.from_pretrained(self.model_name)
         
         self.embeddings = self.model.lm_head.weight
         self.feature_dim = self.model.config.hidden_size
